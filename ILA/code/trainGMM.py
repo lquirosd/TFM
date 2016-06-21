@@ -36,8 +36,8 @@ def main():
    parser = argparse.ArgumentParser(description='K-NN classifier')
    parser.add_argument('-trDir', required=True, action="store", help="Pointer to Training images folder")
    parser.add_argument('-o', '--out', required=True, default=".", action="store", help="Folder to save Out files")
-   parser.add_argument('-nU', '--nUpper', default=2, action="store", help="Number of Mixtures for Upper Model [Default=2]")
-   parser.add_argument('-nB', '--nBottom', default=3, action="store", help="Number of Mixtures for Bottom Model [Default=3]")
+   parser.add_argument('-nU', '--nUpper', type=int, default=2, action="store", help="Number of Mixtures for Upper Model [Default=2]")
+   parser.add_argument('-nB', '--nBottom', type=int, default=3, action="store", help="Number of Mixtures for Bottom Model [Default=3]")
    parser.add_argument('-s', '--statistics', action="store_true", help="Print some statistics about script execution")
    parser.add_argument('--debug', action="store_true", help="Run script on Debugging mode")
    args = parser.parse_args()
@@ -81,10 +81,10 @@ def main():
    if (args.statistics): TGinit = time.clock()
    #--- Train GMM Models
    #--- Upper GMM
-   uGMM = mixture.GMM(n_components = 2)
+   uGMM = mixture.GMM(n_components = args.nUpper)
    uGMM.fit(U)
    #--- Bottom GMM
-   bGMM = mixture.GMM(n_components = 3,  covariance_type='diag')
+   bGMM = mixture.GMM(n_components = args.nBottom,  covariance_type='diag')
    bGMM.fit(B)
 
    GMM_models = {'Upper': uGMM, 'Bottom': bGMM}
