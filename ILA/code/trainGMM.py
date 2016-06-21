@@ -8,9 +8,11 @@ import utils
 from sklearn import mixture
 import time
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
 from matplotlib.colors import LogNorm
-import matplotlib.colors as colors
+try:
+   import cPickle as pickle
+except:
+   import pickle
 
 
 def main():
@@ -33,7 +35,9 @@ def main():
    #--- processing arguments 
    parser = argparse.ArgumentParser(description='K-NN classifier')
    parser.add_argument('-trDir', required=True, action="store", help="Pointer to Training images folder")
-   parser.add_argument('-o', '--out', default=".", action="store", help="Folder to save Out files")
+   parser.add_argument('-o', '--out', required=True, default=".", action="store", help="Folder to save Out files")
+   parser.add_argument('-nU', '--nUpper', default=2, action="store", help="Number of Mixtures for Upper Model [Default=2]")
+   parser.add_argument('-nB', '--nBottom', default=3, action="store", help="Number of Mixtures for Bottom Model [Default=3]")
    parser.add_argument('-s', '--statistics', action="store_true", help="Print some statistics about script execution")
    parser.add_argument('--debug', action="store_true", help="Run script on Debugging mode")
    args = parser.parse_args()
@@ -42,6 +46,10 @@ def main():
    #--- Validate arguments 
    if (not os.path.isdir(args.trDir)):
       print "Folder: %s does not exists\n" %args.trDir
+      parser.print_help()
+      sys.exit(2)
+   if (not os.path.isdir(args.out)):
+      print "Folder: %s does not exists\n" %args.out
       parser.print_help()
       sys.exit(2)
 
@@ -78,6 +86,14 @@ def main():
    #--- Bottom GMM
    bGMM = mixture.GMM(n_components = 3,  covariance_type='diag')
    bGMM.fit(B)
+
+   GMM_models = {'Upper': uGMM, 'Bottom': bGMM}
+   #--- Save Models to file
+   #--- Out File Name 
+   outFile = args.out + 'GMM_tr' + str(nImgs) + '_u' + str(args.nUpper) + '_b' + str(args.nBottom)
+   fh = open(outFile + '.model', 'w')
+   pickle.dump(GMM_models, fh)
+   fh.close()
    if (args.statistics): print 'Training GMM: {0:.5f} seconds'.format(time.clock() - TGinit)
 
    #--- Plot Mixtures and Data 
@@ -105,6 +121,8 @@ def main():
    CB = plt.colorbar(CSu, ax=axs, extend='both')
 
    axs.imshow(imgData[m].img, cmap='gray')
+   plt.axis('off')
+   fig.savefig(outFile + '.png', bbox_inches='tight')
    if (args.statistics): print 'Total Time: {0:.5f} seconds'.format(time.clock() - init)
    plt.show()  
 
