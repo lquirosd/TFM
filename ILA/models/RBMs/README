@@ -1,0 +1,70 @@
+#=============================================================#
+RBM_001:
+INPUT:
+python LA_RBM.py -trDir ./DataCorpus/train/ -teDir ./TR/ -r 0.1 -w 16 -g 5 -o . -s -lr 0.001 -n 20 -c 100
+OUTPUT:
+Logistic regression using RBM features:
+             precision    recall  f1-score   support
+
+          0       0.79      0.94      0.86      1761
+          1       0.91      0.69      0.79      1479
+
+avg / total       0.84      0.83      0.83      3240
+
+#=============================================================#
+RBM_002:
+INPUT:
+python LA_RBM.py -trDir ./DataCorpus/train/ -teDir ./TR/ -r 0.1 -w 16 -g 5 -o . -s -lr 0.06 -n 20 -c 100
+OUTPUT:
+Logistic regression using RBM features:
+             precision    recall  f1-score   support
+
+          0       0.66      0.92      0.77      1761
+          1       0.83      0.44      0.58      1479
+
+avg / total       0.74      0.70      0.68      3240
+#=============================================================#
+RBM_003:
+INPUT:
+python LA_RBM.py -trDir ./DataCorpus/train/ -teDir ./TR/ -r 0.1 -w 16 -g 5 -o . -s -lr 0.0001 -n 20 -c 100
+OUTPUT:
+Logistic regression using RBM features:
+             precision    recall  f1-score   support
+
+          0       0.62      0.89      0.73      1761
+          1       0.73      0.34      0.47      1479
+
+avg / total       0.67      0.64      0.61      3240
+#=============================================================#
+RBM_004:
+INPUT:
+python LA_RBM.py -trDir ./DataCorpus/train/ -teDir ./TR/ -r 0.1 -w 16 -g 3 -o . -s -lr 0.001 -n 20 -c 100
+OUTPUT:
+Logistic regression using RBM features:
+             precision    recall  f1-score   support
+
+          0       0.90      0.95      0.93      4920
+          1       0.94      0.87      0.91      4080
+
+avg / total       0.92      0.92      0.92      9000
+#---------------- Full TE set ---------------------------------
+Logistic regression using RBM features:
+             precision    recall  f1-score   support
+
+ OUT-Layout       0.87      0.96      0.92     77581
+  IN-Layout       0.96      0.86      0.90     75419
+
+avg / total       0.91      0.91      0.91    153000
+#=============================================================#
+RBM_005:
+INPUT:
+python LA_RBM.py -trDir ./DataCorpus/train/ -teDir ./TR/ -r 0.1 -w 16 -g 3 -o . -s -lr 0.001 -n 20 -c 50
+OUTPUT:
+Logistic regression using RBM features:
+             precision    recall  f1-score   support
+
+          0       0.68      0.95      0.79      4920
+          1       0.89      0.47      0.61      4080
+
+avg / total       0.77      0.73      0.71      9000
+#=============================================================#
