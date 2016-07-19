@@ -95,10 +95,8 @@ class imgPage(object):
       index = np.ix_(rows,colums)
       rs = rows.size
       cs = colums.size
-      self.Xdata = np.zeros((rs, cs, window*window), dtype=int)
+      self.Xdata = np.zeros((rs, cs, window*window), dtype='uint8')
       self.labels = np.zeros((rs, cs), dtype='uint8')
-      print self.imgShape
-      print self.labels.shape 
       uCorner = self.getUpperPoints()
       bCorner = self.getBottomPoints()
       for r, row in enumerate(rows):
