@@ -1,0 +1,14 @@
+# Unigram
+#--- This pixel
+U00:%x[0,0]
+#--- Previous pixel
+U01:%x[-1,0]
+#--- Next pixel
+U02:%x[1,0]
+#--- "bigram" T/P
+U03:%x[0,0]/%x[-1,0]
+#--- "bigram" N/T
+U04:%x[1,0]/%x[0,0]
+
+# Bigram <why not?> 
+B
