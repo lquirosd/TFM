@@ -92,8 +92,11 @@ class imgPage(object):
 
         return to_return
 
-    def getFeatures(self, window=32, granularity=3, pca=True):
+    def getFeatures(self, window=33, granularity=3, pca=True):
 
+        self.window = window
+        self.granularity = granularity
+        self.pca = pca
         rows = np.arange(0,self.imgShape[0],granularity)
         rows = rows[np.where((rows>(window/2)) & (rows<=(self.imgShape[0]-(window/2))))]
         colums = np.arange(0,self.imgShape[1],granularity)
@@ -102,9 +105,11 @@ class imgPage(object):
         self.rs = rows.size
         self.cs = colums.size
         if (pca):
-            self.Xdata = np.zeros((self.rs, self.cs,9), dtype='uint8')
+            #self.Xdata = np.zeros((self.rs, self.cs,9), dtype='uint8')
+            self.Xdata = np.zeros((self.rs, self.cs,9))
         else:
-            self.Xdata = np.zeros((self.rs, self.cs, window*window), dtype='uint8')
+            #self.Xdata = np.zeros((self.rs, self.cs, window*window), dtype='uint8')
+            self.Xdata = np.zeros((self.rs, self.cs, window*window))
         self.labels = np.zeros((self.rs, self.cs), dtype='uint8')
         uCorner = self.getUpperPoints()
         bCorner = self.getBottomPoints()
@@ -113,13 +118,10 @@ class imgPage(object):
             for c, col in enumerate(colums):
                 #--- Get gray values around it
                 #--- build index array
-                winIndex = np.ix_(np.arange(row-(window/2),row+(window/2),1,dtype=int),np.arange(col-(window/2),col+(window/2),1,dtype=int))
+                winIndex = np.ix_(np.arange(row-(window/2),row+(window/2)+1,1,dtype=int),np.arange(col-(window/2),col+(window/2)+1,1,dtype=int))
                 if (pca):
                     fstPCA = getPCA(self.img[winIndex],3)
-                    sndPCA = getPCA(fstPCA.T,3).flatten()
-                    Vmin = np.abs(np.min(sndPCA))
-                    Vmax = np.abs(np.max(sndPCA))
-                    self.Xdata[r,c,:] = (((sndPCA + Vmin)/(Vmax+Vmin)) * 255).astype('uint8')
+                    self.Xdata[r,c,:] = getPCA(fstPCA.T,3).flatten()
                 else:
                     self.Xdata[r,c,:] = self.img[winIndex].flatten()
                 #--- add label (1 = layout, 0 = out)

@@ -7,6 +7,8 @@ import glob, os #--- To handle OS callbacks
 import utils
 from sklearn import mixture
 import time
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from matplotlib.colors import LogNorm
 try:
@@ -39,6 +41,7 @@ def main():
    parser.add_argument('-nU', '--nUpper', type=int, default=2, action="store", help="Number of Mixtures for Upper Model [Default=2]")
    parser.add_argument('-nB', '--nBottom', type=int, default=3, action="store", help="Number of Mixtures for Bottom Model [Default=3]")
    parser.add_argument('-s', '--statistics', action="store_true", help="Print some statistics about script execution")
+   parser.add_argument('-p', '--plot', action="store_true", help="Show plot on window")
    parser.add_argument('--debug', action="store_true", help="Run script on Debugging mode")
    args = parser.parse_args()
    if (args.debug): print args 
@@ -71,6 +74,7 @@ def main():
    B = np.zeros((nImgs, 2), dtype=np.int)
    #--- get U & B corners from all TR dataSet 
    for i, file in enumerate(allImgs):
+      print "Working on {0:}".format(file)
       imgData[i] = utils.imgPage(file)
       #imgData[i].readImage()
       imgData[i].parseXML()
@@ -124,7 +128,7 @@ def main():
    plt.axis('off')
    fig.savefig(outFile + '.png', bbox_inches='tight')
    if (args.statistics): print 'Total Time: {0:.5f} seconds'.format(time.clock() - init)
-   plt.show()  
+   if (args.plot): plt.show()  
 
 if __name__ == '__main__':
    main()

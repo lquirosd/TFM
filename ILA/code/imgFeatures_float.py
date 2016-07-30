@@ -5,12 +5,18 @@ import glob, os #--- to handle OS callbacks
 import time
 import pycrfsuite as crfsuite #--- to handle CRF models
 from sklearn import mixture
-import imgPage #--- to handle imga manipulations
+import imgPage_float as imgPage #--- to handle imga manipulations
 
 try:
     import cPickle as pickle
 except:
     import pickle #--- To handle data export
+
+
+#--- TODO:
+#---    - Validate gmmModel argument
+#---    - 
+
 
 
 def main():
@@ -31,8 +37,9 @@ def main():
     #------------------------------------------------------------------------------#
     """
     #--- processing arguments 
-    parser = argparse.ArgumentParser(description='K-NN classifier')
-    parser.add_argument('-imgDir', required=True, action="store", help="Pointer to XML's folder")
+    parser = argparse.ArgumentParser(description='Layout Analysis')
+    parser.add_argument('-trDir', action="store", help="Pointer to training images folder")
+    parser.add_argument('-teDir', action="store", help="Pointer to test images folder")
     parser.add_argument('-z', '--zoom', type=float, default=0.5, action="store", help="Image size zoom [default 0.5]; 1.0= no zoom")
     parser.add_argument('-w', '--window', type=int, default=5, action="store", help="Window size")
     parser.add_argument('-g', '--granularity', type=int, default=1, action="store", help="Granularity of Filter[default 1]")
@@ -40,18 +47,22 @@ def main():
     parser.add_argument('-gm', '--gmmModel', action="store", help="Pre-Computed IGMM Model")
     parser.add_argument('-nU', '--nUpper', type=int, default=2, action="store", help="Number of Mixtures for Upper Model [Default=2]")
     parser.add_argument('-nB', '--nBottom', type=int, default=3, action="store", help="Number of Mixtures for Bottom Model [Default=3]")
-    parser.add_argument('-o', '--out', default=".", action="store", help="Folder to save Out files")
+    parser.add_argument('-o', '--out', default="./", action="store", help="Folder to save Out files")
     parser.add_argument('-s', '--statistics', action="store_true", help="Print some statistics about script execution")
     parser.add_argument('--debug', action="store_true", help="Run script on Debugging mode")
     args = parser.parse_args()
     if (args.debug): print args 
     if (args.statistics): init = time.clock()
     #--- Validate arguments 
-    if (not os.path.isdir(args.imgDir)):
-        raise ValueError("Folder: %s does not exists\n" %args.imgDir)
+    if (args.trDir and not os.path.isdir(args.trDir)):
+        raise ValueError("Folder: %s does not exists\n" %args.trDir)
         parser.print_help()
         sys.exit(2)
 
+    if (args.teDir and not os.path.isdir(args.teDir)):
+        raise ValueError("Folder: %s does not exists\n" %args.teDir)
+        parser.print_help()
+        sys.exit(2)
     if (args.imgFeatures):
         if (not os.path.isfile(args.imgFeatures)):
             raise ValueError("File: %s does not exists\n" %args.imgFeatures)
@@ -69,15 +80,29 @@ def main():
     else:
         if(not args.nUpper and not args.nBottom):
             raise UserWarning('No GMM inputs detected, using default values...')
-    
+    #--- Create out dirs 
+    run_id = "_z" + str(args.zoom) + "_w" + str(args.window) + "_g" + str(args.granularity)
+    tr_out_dir = args.out + run_id + '/train/'
+    te_out_dir = args.out + run_id + '/test/'
+    try:
+        os.makedirs(tr_out_dir)
+    except OSError as exception:
+        if exception.errno != errno.EEXIST:
+            raise
+    try:
+        os.makedirs(te_out_dir)
+    except OSError as exception:
+        if exception.errno != errno.EEXIST:
+            raise
+
     #--- Read images and build features maps
-    allImgs = glob.glob(args.imgDir + "/*.jpg")
-    nImgs = len(allImgs)
+    trImgs = glob.glob(args.trDir + "/*.jpg")
+    nImgs = len(trImgs)
     #--- define out files name codec
-    subName = str(nImgs) + "_z" + str(args.zoom) + "_w" + str(args.window) + "_g" + str(args.granularity)
+    tr_id = str(nImgs) + run_id
 
     if  nImgs <= 0:
-        print "Folder: %s contains no images\n" %args.imgDir
+        print "Folder: %s contains no images\n" %args.trDir
         parser.print_help()
         sys.exit(2)
     
@@ -92,7 +117,7 @@ def main():
         U = np.zeros((nImgs, 2), dtype=np.int)
         #--- Array of Bottom corners
         B = np.zeros((nImgs, 2), dtype=np.int)
-        for i, file in enumerate(allImgs):
+        for i, file in enumerate(trImgs):
             imgData[i] = imgPage.imgPage(file)
             print "Processing: {}".format(file)
             imgData[i].readImage(zoom = args.zoom)
@@ -103,12 +128,51 @@ def main():
             #--- remove img data in order to reduce memory usage 
             imgData[i].delimg()
         #--- Normalize data 
-        #for i in range(nImgs):
-        #
+        #temp = np.zeros(nImgs*imgData[0].rs*imgData[0].cs*9)
+        A_min = np.ones(nImgs)
+        A_max = np.zeros(nImgs)
+        for i, data in enumerate(imgData):
+            #temp[i*imgData[0].rs*imgData[0].cs*9:(i+1)*imgData[0].rs*imgData[0].cs*9]= data.Xdata.flatten()
+            A_min[i] = np.min(data.Xdata)
+            A_max[i] = np.max(data.Xdata)
+        #mean = np.mean(temp)
+        #std = np.std(temp)
+        V_min = np.abs(np.min(A_min))
+        V_max = np.abs(np.max(A_max))
+        for data in imgData:
+            #data.Xdata[:,:,:] = ((data.Xdata[:,:,:]-mean)/std)
+            data.Xdata = ((data.Xdata + V_min)/(V_max + V_min)) * 255
+        #print "Mean: {0:}\nStd: {1:}".format(mean, std)
+        #--- Save TR data
         print "saving data..."
-        fh = open(args.out + "features_" + subName + ".pickle", 'w')
+        fh = open(tr_out_dir + "train_features_" + tr_id + ".pickle", 'w')
         pickle.dump(imgData, fh)
         fh.close()
+    #--- Work on TE images
+    teImgs = glob.glob(args.teDir + "/*.jpg")
+    nImgs = len(teImgs)
+    te_id = str(nImgs) + run_id
+    if  nImgs <= 0:
+        print "Folder: %s contains no images\n" %args.teDir
+        parser.print_help()
+        sys.exit(2)
+    teImgData = np.empty(nImgs, dtype=object)
+    for i, file in enumerate(teImgs):
+        teImgData[i] = imgPage.imgPage(file)
+        print "Processing: {}".format(file)
+        teImgData[i].readImage(zoom = args.zoom)
+        teImgData[i].parseXML()
+        teImgData[i].getFeatures(window=args.window, granularity=args.granularity, pca = True)
+        #--- remove img data in order to reduce memory usage 
+        teImgData[i].delimg()
+        #--- Normalize data
+        #teImgData[i].Xdata = (teImgData[i].Xdata-mean)/std
+        teImgData[i].Xdata = ((teImgData[i].Xdata + V_min)/(V_max + V_min)) * 255
+    print "saving data..."
+    fh = open(te_out_dir + "test_features_" + te_id + ".pickle", 'w')
+    pickle.dump(teImgData, fh)
+    fh.close()
+   
     if (args.gmmModel):
         fh = open(args.gmmModel, 'r')
         GMM_models = pickle.load(fh)
@@ -126,8 +190,7 @@ def main():
         GMM_models = {'Upper': uGMM, 'Bottom': bGMM}
         #--- Save Models to file
         #--- Out File Name 
-        outFile = args.out + 'GMM_' + str(nImgs) + '_u' + str(args.nUpper) + '_b' + str(args.nBottom)
-        fh = open(outFile + '.pickle', 'w')
+        fh = open(tr_out_dir + 'train_GMM_' + tr_id + '_u' + str(args.nUpper) + '_b' + str(args.nBottom) + '.pickle', 'w')
         pickle.dump(GMM_models, fh)
         fh.close()
         
@@ -156,6 +219,7 @@ def main():
     
     
     if (args.statistics): print 'Total time: {0:.5f} seconds'.format(time.clock() - init) 
+    print imgData[0].Xdata.shape
     
 
 if __name__ == '__main__':
