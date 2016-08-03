@@ -63,9 +63,10 @@ def main():
         #        xW = (dx.stop+1 - dx.start)
         #        yW = (dy.stop+1 - dy.start)
         fig, ax = plt.subplots( nrows=1, ncols=1 )
+        ax.axis('off')
         #p = patches.Rectangle((x1, y1), xW, yW, fc = 'none', ec = 'red')
         ax.imshow(img.img, cmap='gray')
-        ax.imshow(zm, alpha=.4, cmap='cool')
+        ax.imshow(zm, alpha=.4, cmap='viridis')
         #ax.add_patch(p)
         for box in bboxes:
             xwidth = box.x2 - box.x1
@@ -80,7 +81,14 @@ def main():
         p = patches.Rectangle((x1, y1), xW, yW,
                                 fc = 'none', ec = 'red')
         ax.add_patch(p)
-        fig.savefig(args.testDir + '/' + img.name + '.png')
+        #--- get real bbox
+        Up = img.getUpperPoints()
+        Bp = img.getBottomPoints()
+        rPatch = patches.Rectangle((Up[0],Up[1]), Bp[0]-Up[0], Bp[1]-Up[1],
+                fc = 'none', ec = 'blue')
+        ax.add_patch(rPatch)
+
+        fig.savefig(args.testDir + '/' + img.name + '.png', bbox_inches='tight')
         plt.close(fig)
     print "Done..."
 
