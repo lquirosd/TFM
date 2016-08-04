@@ -177,10 +177,11 @@ def getIIsum(data, X):
 
     \sum = I(D) - I(A) + I(Bi) + I(C)
     """
+    X = (X[0],X[1],X[2],X[3])
     if (X[0:2] == X[2:4]):
         return data[U]
     else:
-        return data[X[0:2]] - data[X[2:4]] + data[X[0], X[2]] + data[X[3], X[1]]
+        return data[X[2],X[3]] - data[X[0],X[1]] + data[X[0], X[3]] + data[X[2], X[1]]
 
 def getGMMlog(GMM, X):
     return  GMM['Upper'].score(np.array([[X[0], X[1]]])) + \

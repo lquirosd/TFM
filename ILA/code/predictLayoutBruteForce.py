@@ -20,25 +20,29 @@ def minFun(x, GMM, p0, p1):
     sumP0 = imgPage.getIIsum(p0, x)
     sumP1 = imgPage.getIIsum(p1, x)
     valGMM = imgPage.getGMMlog(GMM, x)
-    return -sumP0 - sumP1 - valGMM
+    #return sumP0 + sumP1 + valGMM
+    return -sumP1
 
 def findBboxBF(GMM, P0, P1):
     #--- compute II
-    p0II = imgPAge.computeII(P0)
-    p1II = imgPAge.computeII(P1)
+    p0II = imgPage.computeII(P0)
+    p1II = imgPage.computeII(P1)
     r, c = P0.shape
     #--- using r/2 in order to reduce grid size, but Bootm point cant be reduced
     #--- in general case, since bbox could be pretty small 
     #--- Use small set for testing
-    rranges(slice(5,r/2,20), slice(5,c/2,20), slice(r/2,r,20), slice(c/2,c,20) )
+    rranges = (slice(5,r-5,3), slice(139,141,1), slice(983,985,1), slice(570,572,1) )
     params = (GMM, p0II, p1II)
-    resBrute = optimize.brute(minFun, rranges, args=params, full_output=True, finish=optimize.fmin)
+    resBrute = optimize.brute(minFun, rranges, args=params, full_output=False, finish=None)#, finish=optimize.fmin)
+    print resBrute
+    return resBrute
 
 
 def main():
     #--- processing arguments 
     parser = argparse.ArgumentParser(description='Layout Analysis')
     parser.add_argument('-imgData', action="store", help="Pointer to images Data pickle file")
+    parser.add_argument('-gmmData', action="store", help="Pointer to GMM Data pickle file")
     parser.add_argument('-t', '--testDir', action="store", help="Pointer to CRFs model file")
     parser.add_argument('-s', '--statistics', action="store_true", help="Print some statistics about script execution")
     parser.add_argument('--debug', action="store_true", help="Run script on Debugging mode")
@@ -50,23 +54,28 @@ def main():
     fh = open(args.imgData, 'r')
     imgData = pickle.load(fh)
     fh.close()
+    #--- Read GMM model
+    fh = open(args.gmmData, 'r')
+    GMMmodel = pickle.load(fh)
+    fh.close()
     #--- use only first image in order to test code 
-    for img in imgData[0]:
+    for bla, img in enumerate(imgData):
+        if(bla > 0): break
         #--- read img
         if(args.statistics): Decinit = time.clock() 
         print "Working on {}...".format(img.name)
         img.readImage(zoom=img.zoom)
         #--- window and granularity should be extracted from model, but isnt on test model yet
-        img.window = 32
+        img.window = 16
         img.granularity = 3
         #--- Results Format: Label\smarginalProb
         #--- Since we are working on 2 class problem, P(0) = 1- P(1) 
         rData = np.loadtxt(args.testDir + '/' + img.name + '.results')
         labels = rData[:,0]
-        P0 = results[:,1].copy()
-        P1 = results[:,1].copy()
-        P0[results[:,0]==1] = 1 - P0[results[:,0]==1]
-        P1[results[:,0]==1] = 1 - P1[results[:,0]==1]
+        P0 = rData[:,1].copy()
+        P1 = rData[:,1].copy()
+        P0[rData[:,0]==1] = 1 - P0[rData[:,0]==1]
+        P1[rData[:,0]==1] = 1 - P1[rData[:,0]==1]
         rows = np.arange(0,img.imgShape[0],img.granularity)
         rows = rows[np.where((rows>(img.window/2)) & (rows<=(img.imgShape[0]-(img.window/2))))]
         colums = np.arange(0,img.imgShape[1],img.granularity)
@@ -119,13 +128,17 @@ def main():
         ax.add_patch(p)
         if (args.statistics): print 'PAWS Time: {0:.5f} seconds'.format(time.clock() - PAWSinit)
         #--- Find Main Paragraph using Brute Force 
+        print "Working on Brute Force alg..."
         if(args.statistics): BFinit = time.clock() 
-        bruteResults = findBboxBF(GMMmodel, z0, z1) 
-        bruteBbox = bruteResults[0]
-        bruteLogScore = bruteResults[1]
+        Br = findBboxBF(GMMmodel, z0, z1) 
+        #bruteBbox = bruteResults[0]
+        #bruteLogScore = bruteResults[1]
+        bfPatch = patches.Rectangle((Br[1],Br[0]), Br[3]-Br[1], Br[2]-Br[0],
+                fc = 'none', ec = 'green')
+        ax.add_patch(bfPatch)
         if (args.statistics): print 'Brute Force: {0:.5f} seconds'.format(time.clock() - BFinit)
         #--- Save Results
-        fig.savefig(args.testDir + '/' + img.name + '.png')
+        fig.savefig(args.testDir + '/' + img.name + '_small.png')
         plt.close(fig)
         if (args.statistics): print 'Total Time: {0:.5f} seconds'.format(time.clock() - init)
 
