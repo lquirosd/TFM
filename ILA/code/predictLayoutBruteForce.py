@@ -17,11 +17,13 @@ except:
 import subprocess as shell
 
 def minFun(x, GMM, p0, p1):
-    sumP0 = imgPage.getIIsum(p0, x)
-    sumP1 = imgPage.getIIsum(p1, x)
-    valGMM = imgPage.getGMMlog(GMM, x)
-    #return sumP0 + sumP1 + valGMM
-    return -sumP1
+    if (x[2] <= x[0] or x[3] <= x[1]):
+        return np.inf
+    else:
+        sumP0 = imgPage.getIIsum(p0, x)
+        sumP1 = imgPage.getIIsum(p1, x)
+        valGMM = imgPage.getGMMlog(GMM, x)
+        return -sumP0 - sumP1 - valGMM
 
 def findBboxBF(GMM, P0, P1):
     #--- compute II
