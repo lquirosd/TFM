@@ -16,6 +16,22 @@ except:
     import pickle #--- To handle data export
 import subprocess as shell
 
+class SearchBounds(object):
+    def __init__(self, xmax=[1.1,1.1], xmin=[1.1,1.1]):
+        self.rmax = 365
+        self.rmin = 0
+        self.cmax = 230
+        self.cmin = 0
+    def __call__(self, **kwargs):
+        x = kwargs["x_new"]
+        d = x[2] <= x[0] or x[3] <= x[1] or \
+                self.rmax >= x[0] >= self.rmin or \
+                self.cmax >= x[1] >= self.cmin or \
+                self.rmax >= x[2] >= self.rmin or \
+                self.cmax >= x[3] >= self.cmin 
+        return d
+
+
 def minFun(x, GMM, p0, p1):
     if (x[2] <= x[0] or x[3] <= x[1]):
         return np.inf
@@ -25,7 +41,7 @@ def minFun(x, GMM, p0, p1):
         valGMM = imgPage.getGMMlog(GMM, x)
         return -sumP0 - sumP1 - valGMM
 
-def findBboxBF(GMM, P0, P1):
+def findBboxBF(GMM, P0, P1, x0):
     #--- compute II
     p0II = imgPage.computeII(P0)
     p1II = imgPage.computeII(P1)
@@ -33,11 +49,23 @@ def findBboxBF(GMM, P0, P1):
     #--- using r/2 in order to reduce grid size, but Bootm point cant be reduced
     #--- in general case, since bbox could be pretty small 
     #--- Use small set for testing
-    rranges = (slice(5,r-5,3), slice(139,141,1), slice(983,985,1), slice(570,572,1) )
+    Urmin = 0 if x[0]-50 < 0 else x[0]-50
+    Ucmin = 0 if x[1]-50 < 0 else x[1]-50
+    Brmin = 0 if x[2]-50 < 0 else x[2]-50
+    Bcmax = 0 if x[3]-50 < 0 else x[3]-50
+    Urmax = r if x[0]+50 > r else x[0]+50
+    Ucmax = c if x[1]+50 < c else x[1]+50
+    Brmax = r if x[2]+50 < r else x[2]+50
+    Bcmax = c if x[3]+50 < c else x[3]+50
+    rranges = (slice(Urmin,Urmax,3), slice(Ucmin,Ucmax,3), slice(Brmin,Brmax,3), slice(Bcmin,Bcmax,3) )
     params = (GMM, p0II, p1II)
     resBrute = optimize.brute(minFun, rranges, args=params, full_output=False, finish=None)#, finish=optimize.fmin)
     print resBrute
     return resBrute
+    #--- Use basinhopping
+    #minimizer_kwargs = {"method": "BFGS"}
+    #resBH = optimize.basinhopping(minFunc, x0, niter= 1000, T=3, stepsize=3, 
+     #       minimizer_kwargs= minKw, disp=True, niter_success=50)
 
 
 def main():
@@ -129,10 +157,11 @@ def main():
                                 fc = 'none', ec = 'red')
         ax.add_patch(p)
         if (args.statistics): print 'PAWS Time: {0:.5f} seconds'.format(time.clock() - PAWSinit)
-        #--- Find Main Paragraph using Brute Force 
-        print "Working on Brute Force alg..."
+        #--- Find Main Paragraph using Brute Force does not work search spage is pretty big 
+        #print "Working on Brute Force alg..."
+        x0 = np.array([y1, x1, yW+y1,xW+x1 ])
         if(args.statistics): BFinit = time.clock() 
-        Br = findBboxBF(GMMmodel, z0, z1) 
+        Br = findBboxBF(GMMmodel, z0, z1,x0) 
         #bruteBbox = bruteResults[0]
         #bruteLogScore = bruteResults[1]
         bfPatch = patches.Rectangle((Br[1],Br[0]), Br[3]-Br[1], Br[2]-Br[0],
