@@ -22,6 +22,8 @@ class imgPage(object):
         self.name = os.path.splitext(os.path.basename(filePointer))[0]
         self.xmlPointer = self.dir + '/page/' + self.name + '.xml'
         self.zoom = 1.0
+        self.blockTypes = {'background':0, 'catch-word':1, 'heading':2, 'marginalia':3, 'page-number':4, 'paragraph':5, 'signature-mark':6}
+        self.decBlockTypes = {0:'background', 1:'catch-word', 2:'heading', 3:'marginalia', 4:'page-number', 5:'paragraph', 6:'signature-mark'}
 
     def readImage(self, full = False, zoom = 1.0):
         """
@@ -92,6 +94,20 @@ class imgPage(object):
 
         return to_return
 
+    def getGTmask(self):
+        self.gtMask = np.zeros(self.imgShape, dtype='uint8')
+        for zone in self.blockTypes:
+            data = self.rootXML.findall('./' + self.baseXML + 'Page' +
+                    '/*[@type="' + zone+ '"]')
+            for subZone in data:
+                subData = subZone.findall('./' + self.baseXML +
+                        'Coords')[0].attrib.get('points').split()
+                coords = (np.array([i.split(',') for i in subData]).astype(np.int) * self.zoom).astype(np.int)
+                bbox = np.ix_(np.arange(coords[0][1], coords[2][1]), np.arange(coords[0][0], coords[2][0]) )
+                self.gtMask[bbox] = self.blockTypes[zone]
+        return self.gtMask
+
+
     def getFeatures(self, window=33, granularity=3, pca=True):
 
         self.window = window
@@ -111,6 +127,7 @@ class imgPage(object):
             #self.Xdata = np.zeros((self.rs, self.cs, window*window), dtype='uint8')
             self.Xdata = np.zeros((self.rs, self.cs, window*window))
         self.labels = np.zeros((self.rs, self.cs), dtype='uint8')
+        #gtMask = self.getGTmask()
         uCorner = self.getUpperPoints()
         bCorner = self.getBottomPoints()
         if(self.statistics): init = time.clock()
@@ -125,6 +142,7 @@ class imgPage(object):
                 else:
                     self.Xdata[r,c,:] = self.img[winIndex].flatten()
                 #--- add label (1 = layout, 0 = out)
+                #self.labels[r,c] = gtMask[row,col]
                 if (uCorner[1] < row and bCorner[1] > row and uCorner[0] < col and bCorner[0] > col):
                     self.labels[r,c] = 1
         if (self.statistics): print "Features time: {0:.5f} seconds".format(time.clock() - init)
