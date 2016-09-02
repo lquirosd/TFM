@@ -146,7 +146,7 @@ def main():
         #--- Save TR data
         print "saving data..."
         fh = open(tr_out_dir + "train_features_" + tr_id + ".pickle", 'w')
-        pickle.dump(imgData, fh)
+        pickle.dump(imgData, fh,2)
         fh.close()
     #--- Work on TE images
     teImgs = glob.glob(args.teDir + "/*.jpg")
@@ -170,7 +170,7 @@ def main():
         teImgData[i].Xdata = ((teImgData[i].Xdata + V_min)/(V_max + V_min)) * 255
     print "saving data..."
     fh = open(te_out_dir + "test_features_" + te_id + ".pickle", 'w')
-    pickle.dump(teImgData, fh)
+    pickle.dump(teImgData, fh,2)
     fh.close()
    
     if (args.gmmModel):
@@ -191,7 +191,7 @@ def main():
         #--- Save Models to file
         #--- Out File Name 
         fh = open(tr_out_dir + 'train_GMM_' + tr_id + '_u' + str(args.nUpper) + '_b' + str(args.nBottom) + '.pickle', 'w')
-        pickle.dump(GMM_models, fh)
+        pickle.dump(GMM_models, fh,2)
         fh.close()
         
     if (args.statistics): print 'Parsing Image Data: {0:.5f} seconds'.format(time.clock() - PIinit) 
