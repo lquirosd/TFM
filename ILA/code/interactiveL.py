@@ -1,3 +1,5 @@
+# -*- coding: utf-8 -*-
+from __future__ import division
 import numpy as np
 import matplotlib.pyplot as plt
 try:
@@ -14,6 +16,44 @@ import gc
 
 Bfix = False
 Ufix = False
+nClick = 0
+
+def computeGOperf(G,R,B):
+   """
+      Function computes Goal-Oriented performance metric defined by  
+      "Stamatopoulos, N., Louloudis, G., and Gatos, B. (2015). Goal-Oriented
+      Performance Evaluation Methodology for Page Segmentation Techniques. In
+      13th International Confrence on Document Analysis and Recognition -
+      ICDAR15, pages 281–285." 
+      On this case, since only one block is expected, weight (w_{ij}) on 
+      Eq (2) is computed directly by Eq (6) as other layout zones are 
+      considered as non-text elements
+   """
+   dMin = np.min(np.vstack((G,R)), axis=0)
+   dMax = np.max(np.vstack((G,R)), axis=0)
+   fi = B[dMax[0]:dMin[2],dMax[1]:dMin[3]]
+   FI = fi[fi!=255].size
+   fr = B[R[0]:R[2],R[1]:R[3]]
+   FR = fr[fr!=255].size
+   fg = B[G[0]:G[2],G[1]:G[3]]
+   FG = fg[fg!=255].size
+   return (FI**2)/(FR*FG)
+
+def computePerf(G, R, B):
+    """
+        function computes performance metric used in ICIDAR2009,
+        "B. Gatos · N. Stamatopoulos · G. Louloudis (2009). ICDAR2009
+        handwriting segmentation contest."
+    """
+    dMin = np.min(np.vstack((G,R)), axis=0)
+    dMax = np.max(np.vstack((G,R)), axis=0)
+    fi = B[dMax[0]:dMin[2],dMax[1]:dMin[3]]
+    FI = fi.size
+    fr = B[R[0]:R[2],R[1]:R[3]]
+    FR = fr.size
+    fg = B[G[0]:G[2],G[1]:G[3]]
+    FG = fg.size
+    return (2*FI)/(FR+FG)
 
 def minFun (x0, x1, x2, x3, uZ, bZ, p0, p1):
     sumP0 = p0[-1,-1] - imgPage.getIIsum(p0, np.array([x0, x1, x2, x3]))
@@ -30,10 +70,18 @@ def decodeFeedback(event, bbox, ax, data):
     #--- get Fix status
     global Ufix
     global Bfix
+    global nClick
+    #print ('button= {0:}').format(event.button)
     #print('button=%d, x=%d, y=%d, xdata=%f, ydata=%f' %
     #        (event.button, event.x, event.y, event.xdata, event.ydata))
     #--- Only right click is expected, any other is ignored
-    if (event.button == 1):
+    if (event.xdata == None and event.ydata == None):
+        #tmp = data.pgbbox * 1
+        #data.pgbbox = np.array([tmp[0], tmp[1], tmp[2]-tmp[0], tmp[3]-tmp[1]])
+        exit()
+
+    if (event.button == 1 and event.xdata != None and event.ydata != None):
+        nClick = nClick + 1
         #--- Compute euclidean distance to each main paragraph corner
         Udist = np.sqrt((bbox[1]-event.xdata)**2+(bbox[0]-event.ydata)**2)
         Bdist = np.sqrt((bbox[3]-event.xdata)**2+(bbox[2]-event.ydata)**2)
@@ -104,18 +152,34 @@ def decodeFeedback(event, bbox, ax, data):
         plt.draw()
         #--- keep a small sleep time to allow system to draw correctly 
         plt.pause(0.01)
-        print "Delay: {0:.5f} seconds".format(time.clock() - init)
+        print "Decode Feedback delay: {0:.5f} seconds".format(time.clock() - init)
+    if (event.button == 3):
+        #--- Close window 
+        plt.close() 
 
-def handle_close(event, imgFile, imgData, bbox):
+def handle_close(event, imgFile, imgData, bbox, GOperf, idx):
     """
         Save data to original file when user closes the Figure window.
         Add last bbox as user defined bbox
     """
+    global Ufix
+    global Bfix
+    global nClick
     imgData.ubbox = bbox
     oh = open(imgFile, 'w')
     pickle.dump(imgData, oh, 2)
     oh.close()
     print "Image Data Saved..."
+    #--- Compute Performance metric
+    cclSR = computeGOperf(imgData.gtbbox, imgData.pgbbox, imgData.cImg)
+    bfSR = computeGOperf(imgData.gtbbox, imgData.bfbbox, imgData.cImg)
+    uSR = computeGOperf(imgData.gtbbox, imgData.ubbox, imgData.cImg)
+    cclP = computePerf(imgData.gtbbox, imgData.pgbbox, imgData.cImg)
+    bfP = computePerf(imgData.gtbbox, imgData.bfbbox, imgData.cImg)
+    uP = computePerf(imgData.gtbbox, imgData.ubbox, imgData.cImg)
+    nameID = imgData.name.split('_')[2]
+    GOperf[idx] = imgData.name, nameID, cclP, cclSR, bfP, bfSR, uP, uSR, nClick
+    
 
 def main():
     """
@@ -127,6 +191,7 @@ def main():
     parser = argparse.ArgumentParser(description='Interactive Layout Analysis')
     parser.add_argument('-imgData', action="store", help="Pointer to images Data pickle file")
     parser.add_argument('-t', '--testDir', action="store", help="Pointer to CRFs model file")
+    parser.add_argument('-p', '--perf', action="store", help="Print Performance matrics to file")
     parser.add_argument('-s', '--statistics', action="store_true", help="Print some statistics about script execution")
     parser.add_argument('--debug', action="store_true", help="Run script on Debugging mode")
     args = parser.parse_args()
@@ -135,6 +200,7 @@ def main():
     #--- Use global fix variables to keep tracking of automatic/user changes
     global Ufix
     global Bfix
+    global nClick
     if (args.imgData and not os.path.isdir(args.imgData)): 
         raise ValueError("Folder: %s does not exist\n" %args.imgData)
         parser.print_help()
@@ -151,10 +217,15 @@ def main():
         parser.print_help()
         sys.exit(2)
     #--- Main loop
+    #perfData = np.empty(nImgs+1, dtype=[('name','S30'), ('id','S7'), ('cclP','float'), ('cclSR','float'), ('bfP','float'),('bfSR','float'),('uP','float'),('uSR','float'),('ch','S3')])
+    dat_dtype = {'names':('name','id','cclP','cclSR','bfP','bfSR','uP','uSR','nC'), 'formats': ('S30','S7','f','f','f','f','f','f','i')}
+    perfData = np.empty(nImgs + 1, dtype=dat_dtype)
+    perfData[-1] = 'Average','Average',0,0,0,0,0,0,0
     for i, imgFile in enumerate(imgNames):
         #--- Set fix variables to False, then any change is allowed
         Ufix = False
         Bfix = False
+        nClick = 0
         print "Working on data from: {0:}".format(imgFile) 
         Rinit = time.clock()
         fh = open(imgFile, 'rb')
@@ -168,19 +239,34 @@ def main():
         print "Read Delay: {0:.5f} seconds".format(time.clock()-Rinit)
         fig, ax = plt.subplots( nrows=1, ncols=1 )
         plt.axis('off')
+        #ax.grid()
+        mng = plt.get_current_fig_manager()
+        mng.full_screen_toggle()
+        #mng.window.showMaximized()
         ax.imshow(imgData.img, cmap='gray')
+        ax.set_zorder(1)
         bbox = imgData.bfbbox * 1
+        #print tmp
         bPatch = patches.Rectangle((bbox[1], bbox[0]), bbox[3]-bbox[1], bbox[2]-bbox[0],
                 fc = 'none', ec = 'green')
         ax.add_patch(bPatch)
+        #cPatch = patches.Rectangle((imgData.pgbbox[1], imgData.pgbbox[0]), imgData.pgbbox[3]-imgData.pgbbox[1], imgData.pgbbox[2]-imgData.pgbbox[0],
+        #        fc = 'none', ec = 'blue')
+        #ax.add_patch(cPatch)
         #--- Connect button_press and close events to respective functions in order
         #---    to handle user feedback decoding
         #cid = fig.canvas.mpl_connect('button_press_event', decodeFeedback)
         cid = fig.canvas.mpl_connect('button_press_event', lambda event: decodeFeedback(event, bbox, ax, imgData))
-        xid = fig.canvas.mpl_connect('close_event', lambda event: handle_close(event, imgFile, imgData, bbox))
+        xid = fig.canvas.mpl_connect('close_event', lambda event: handle_close(event, imgFile, imgData, bbox, perfData, i))
         plt.show()
         fig.canvas.mpl_disconnect(cid)
         fig.canvas.mpl_disconnect(xid)
+    if(args.perf):
+        perfData[-1] = 'Average','Average',perfData['cclP'].sum()/nImgs, \
+            perfData['cclSR'].sum()/nImgs, perfData['bfP'].sum()/nImgs, \
+            perfData['bfSR'].sum()/nImgs, perfData['uP'].sum()/nImgs, \
+            perfData['uSR'].sum()/nImgs, 0
+        np.savetxt(args.perf,perfData,delimiter=',',fmt='%s', header=",".join(dat_dtype['names']))
 
 if __name__ == '__main__':
     main()
